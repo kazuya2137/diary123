@@ -2,72 +2,96 @@
 
 namespace App\Http\Controllers;
 
+use App\Diary; // App/Diaryクラスを使用する宣言
 use Illuminate\Http\Request;
-use App\Diary;
-use App\Http\Requests\CreateDiary; // 追加
+use App\Http\Requests\CreateDiary;
 
+use Illuminate\Support\Facades\Auth;
 
 class DiaryController extends Controller
 {
+    // 追加
     public function index()
     {
-        // ::でメソッドを読んでるのはLaravelのファサード
-        $diaries = Diary::all();
-        // allはテーブルの中身を全て取得
+        // 
+        $diaries = Diary::with('likes')->orderBy('id', 'desc')->get(); //修正
+        // asc
 
-        // dd($diaries);
-        // dd->die and dump
-        // var_dumpとexitをまとめて実行してくれる関数
-    // viewディレクトリの中のindex(.blade).phpを返す
-        // 第二引数に連想配列の形でviewで使用したいデーターをかく
-
-        return view('diaries.index' , ['diaries'=>$diaries]);
-
+        // view/diaries/index.blade.phpを表示
+        return view('diaries.index',['diaries' => $diaries]);
     }
+
+    //app/Http/Controllers/DiaryController
     public function create()
     {
-        // views/diaries/create.blade.phpを表示する
         return view('diaries.create');
     }
+
     public function store(CreateDiary $request)
-{
-    $diary = new Diary(); //Diaryモデルをインスタンス化
+    {
+        $diary = new Diary(); //Diaryモデルをインスタンス化
 
-    $diary->title = $request->title; //画面で入力されたタイトルを代入
-    $diary->body = $request->body; //画面で入力された本文を代入
-    $diary->save(); //DBに保存
+        $diary->title = $request->title; //画面で入力されたタイトルを代入
+        $diary->body = $request->body; //画面で入力された本文を代入
+        $diary->user_id = Auth::user()->id; //追加 ログインしてるユーザーのidを保存
 
-    return redirect()->route('diary.index'); //一覧ページにリダイレクト
-}
+        $diary->save(); //DBに保存
 
-    public function destroy(int $id)
-{
-    //Diaryモデルを使用して、diariesテーブルから$idと一致するidをもつデータを取得
-    $diary = Diary::find($id); 
+        return redirect()->route('diary.index'); //一覧ページにリダイレクト
+    }
 
-    //取得したデータを削除
-    $diary->delete();
+    public function destroy(Diary $diary)
+    {
+        //Diaryモデルを使用して、diariesテーブルから$idと一致するidをもつデータを取得
 
-    return redirect()->route('diary.index');
-}
-public function edit(int $id)
-{
-     //Diaryモデルを使用して、diariesテーブルから$idと一致するidをもつデータを取得
-    $diary = Diary::find($id);
+         if (Auth::user()->id !== $diary->user_id) {
+            abort(403);
+        } 
 
-    return view('diaries.edit', [
-        'diary' => $diary,
-    ]);
-}
-public function update(int $id, CreateDiary $request)
-{
-    $diary = Diary::find($id);
+        //取得したデータを削除
+        $diary->delete();
 
-    $diary->title = $request->title; //画面で入力されたタイトルを代入
-    $diary->body = $request->body; //画面で入力された本文を代入
-    $diary->save(); //DBに保存
+        return redirect()->route('diary.index');
+    }
 
-    return redirect()->route('diary.index'); //一覧ページにリダイレクト
-}
+    public function edit(Diary $diary)
+    {
+         //Diaryモデルを使用して、diariesテーブルから$idと一致するidをもつデータを取得
+
+        if (Auth::user()->id !== $diary->user_id) {
+            abort(403);
+        } 
+
+        return view('diaries.edit', [
+            'diary' => $diary,
+        ]);
+    }
+
+    public function update(Diary $diary, CreateDiary $request)
+    {
+         if (Auth::user()->id !== $diary->user_id) {
+            abort(403);
+        } 
+
+        $diary->title = $request->title; //画面で入力されたタイトルを代入
+        $diary->body = $request->body; //画面で入力された本文を代入
+        $diary->save(); //DBに保存
+
+        return redirect()->route('diary.index'); //一覧ページにリダイレクト
+    }
+
+    public function like(int $id)
+    {
+        $diary = Diary::where('id', $id)->with('likes')->first();
+
+        $diary->likes()->attach(Auth::user()->id);
+    }
+
+    public function dislike(int $id)
+    {
+        $diary = Diary::where('id', $id)->with('likes')->first();
+
+        $diary->likes()->detach(Auth::user()->id);
+    }
 
 }
