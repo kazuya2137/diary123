@@ -28,4 +28,11 @@ class CreateDiary extends FormRequest
             'body' => 'required',
         ];
     }
+    public function attributes()
+{
+    return [
+        'title' => 'タイトル',
+        'body' => '本文',
+    ];
+}
 }
